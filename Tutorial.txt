@@ -40,11 +40,11 @@
 
 17. U pgAdminu primetiti da i dalje nema ChatForum baze.
 
-18. U Package Manager console ukucati Update-Database i pogledati ponovo.
+18. U Package Manager console ukucati Update-Database i pogledati ponovo. Baza je napravljena.
 
 19. U pgAdmin pronaci tabelu EFMigrationsHistory. U njoj se belezi istorija migracija. Svaki put kada izvrsimo Update-Database EF proverava koje migracije su vec izvrsene i njih ne izvrsava.
 
-20. U ApplicationDbContext.cs dodati DbSet<User> Property (SNIPPET 5).
+20. U ApplicationDbContext.cs dodati DbSet<User> Property (SNIPPET 5). DBSet predstavlja tabelu u bazi, a User tip entiteta.
 
 21. U Package Manager console ukucati Add-Migration CreateUsersTable i Update-Database. Proveriti da li postoji tabela Users u bazi.
 
@@ -64,7 +64,7 @@
 
 27. Dodati IUnitOfWork interface u folder IRepository (SNIPPET 10).
 
-28. Dodati UnitOfWork interface u folder Repository (SNIPPET 11). U ovu klasu stavljamo sve repozitorijume kao i ApplicationDbContextpreko koga cuvamo promene u bazi.
+28. Dodati UnitOfWork interface u folder Repository (SNIPPET 11). U ovu klasu stavljamo sve repozitorijume kao i ApplicationDbContext preko koga cuvamo promene u bazi.
 
 
 
@@ -92,7 +92,7 @@
 
 37. Dodati SignInService u Service folder (SNIPPET 16).
 
-38. U WebAPI dodati referencu na Services projekat.
+38. U WebAPI projekat dodati referencu na Services projekat.
 
 39. U Program.cs dodati SignUpService i SignInService u dependency injection (SNIPPET 17).
 
@@ -106,7 +106,7 @@
 
 42. Dodati klasu SignInDTO (SNIPPET 19).
 
-43. Ove klase sluze kao sema za request body. Nepostovanje ove seme prilikom HTTP zahteva ce dovesti do greske.
+43. Ove klase sluze kao sema za request body. Nepostovanje ove seme prilikom HTTP zahteva ce dovesti do greske u ModelState.
 
 
 
@@ -122,7 +122,7 @@
 
 48. U Program.cs pre dodavanja DbContexta onemoguciti da ModelState salje automatske odgovore (SNIPPET 21).
 
-49. Pokrenuti aplikaciju i testirati u Swagger UI.
+49. Pokrenuti aplikaciju i testirati u Swagger UI ili Postman.
 
 
 
@@ -136,7 +136,7 @@
 
 53. Napraviti ICommentRepository i CommentRepository na osnovu IUserRepository i UserRepository. 
 
-54. Dodati CommentRepository u IUnitOfWork i UnitOfWork.
+54. Dodati ICommentRepository u IUnitOfWork i UnitOfWork.
 
 55. Dodati IUserVerificationService(SNIPPET 25).
 
@@ -162,7 +162,7 @@
 
 - CROSS ORIGIN RESOURCE SHARING (CORS) POLICY
 
-63. Da bi mogli da saljemo zahteve ka nasem servisu potrebno je dodati CORS Policy.
+63. Da bi mogli da saljemo zahteve ka nasem servisu iz klijentski aplikacija potrebno je dodati CORS Policy.
 
 64. U Program.cs dodati CORS Policy (SNIPPET 34) nakon linije koda: builder.Services.AddSwaggerGen().
 
