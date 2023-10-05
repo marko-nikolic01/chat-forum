@@ -1,0 +1,843 @@
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 1:
+
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Model
+{
+    public class User
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
+
+
+        [Required(ErrorMessage = "E-mail is required.")]
+        [MaxLength(254)]
+        [DataType(DataType.EmailAddress)]
+        [RegularExpression(@"^[^\s@]+@[^\s@]+\.[^\s@]+$", ErrorMessage = "Invalid e-mail format.")]
+        public string Email { get; set; }
+
+
+        [Required(ErrorMessage = "Username is required.")]
+        [MaxLength(30)]
+        [RegularExpression(@"^[a-zA-Z0-9_]+$",
+            ErrorMessage = "Username must only contain letters, digits, and underscores.")]
+        public string Username { get; set; }
+
+
+        [Required(ErrorMessage = "Password is required.")]
+        [MaxLength(30)]
+        [DataType(DataType.Password)]
+        [RegularExpression(@"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$", 
+            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, one special character, and no spaces.")]
+        public string Password { get; set; }
+
+
+        public User()
+        {
+            this.Id = 0;
+            this.Email = "";
+            this.Username = "";
+            this.Password = "";
+        }
+
+        public User(string email, string username, string password)
+        {
+            this.Email = email;
+            this.Username = username;
+            this.Password = password;
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 2:
+
+using Model;
+using Microsoft.EntityFrameworkCore;
+
+namespace DataAccess.Context
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        {
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 3:
+
+"ConnectionStrings": {
+    "DefaultConnection": "Host=myhostname;Port=myport;Database=ChatForum;Username=myusername;Password=mypassword;"
+  }
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 4:
+
+builder.Services.AddDbContext<ApplicationDbContext>(options => {
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 5:
+
+public DbSet<User> Users { get; set; }
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 6:
+
+using System.Linq.Expressions;
+
+namespace DataAccess.Repository.IRepository
+{
+    public interface IRepository<T> where T : class
+    {
+        IEnumerable<T> GetAll(string? includedProperties = null);
+        T GetFirstOrDefault(Expression<Func<T, bool>> filter, string? includedProperties = null);
+        void Add(T entity);
+        void Remove(T entity);
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 7:
+
+using DataAccess.Context;
+using DataAccess.Repository.IRepository;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
+
+namespace DataAccess.Repository
+{
+    public class Repository<T> : IRepository<T> where T : class
+    {
+        private ApplicationDbContext _db;
+        internal DbSet<T> dbSet;
+
+        public Repository(ApplicationDbContext db)
+        {
+            _db = db;
+            this.dbSet = _db.Set<T>();
+        }
+
+        public IEnumerable<T> GetAll(string? includedProperties = null)
+        {
+            IQueryable<T> query = dbSet;
+            if (!string.IsNullOrEmpty(includedProperties))
+            {
+                foreach (string property in includedProperties.Split(','))
+                {
+                    query = query.Include(property);
+                }
+            }
+            return query.ToList();
+        }
+
+        public T GetFirstOrDefault(Expression<Func<T, bool>> filter, string? includedProperties = null)
+        {
+            IQueryable<T> query = dbSet;
+            query = query.Where(filter);
+            if (!string.IsNullOrEmpty(includedProperties))
+            {
+                foreach (string property in includedProperties.Split(','))
+                {
+                    query = query.Include(property);
+                }
+            }
+            return query.FirstOrDefault();
+        }
+
+        public void Add(T entity)
+        {
+            dbSet.Add(entity);
+        }
+
+        public void Remove(T entity)
+        {
+            dbSet.Remove(entity);
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 8:
+
+using DataAccess.Repository.IRepository;
+using Model;
+
+namespace DataAccess.Repository.IRepository
+{
+    public interface IUserRepository : IRepository<User>
+    {
+        void Update(User user);
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 9:
+
+using DataAccess.Context;
+using DataAccess.Repository.IRepository;
+using Model;
+
+namespace DataAccess.Repository
+{
+    public class UserRepository : Repository<User>, IUserRepository
+    {
+        private ApplicationDbContext _db;
+
+        public UserRepository(ApplicationDbContext db) : base(db)
+        {
+            _db = db;
+        }
+
+        public void Update(User user)
+        {
+            _db.Users.Update(user);
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 10:
+
+namespace DataAccess.Repository.IRepository
+{
+    public interface IUnitOfWork
+    {
+        IUserRepository UserRepository { get; }
+
+        void Save();
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 11:
+
+using DataAccess.Context;
+using DataAccess.Repository.IRepository;
+
+namespace DataAccess.Repository
+{
+    public class UnitOfWork : IUnitOfWork
+    {
+        private ApplicationDbContext _db;
+        public IUserRepository UserRepository { get; private set; }
+
+        public UnitOfWork(ApplicationDbContext db)
+        {
+            _db = db;
+            UserRepository = new UserRepository(_db);
+        }
+
+        public void Save()
+        {
+            _db.SaveChanges();
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 12:
+
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 13:
+
+using Model;
+
+namespace Services.IService
+{
+    public interface ISignUpService
+    {
+        bool IsUsernameOrEmailTaken(string username, string email);
+        void SignUp(User user);
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 14:
+
+using DataAccess.Repository.IRepository;
+using Model;
+using Services.IService;
+
+namespace Services
+{
+    public class SignUpService : ISignUpService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+
+        public SignUpService(IUnitOfWork unitOfWork)
+        {
+            this._unitOfWork = unitOfWork;
+        }
+
+        public bool IsUsernameOrEmailTaken(string username, string email)
+        {
+            User conflictedUser = _unitOfWork.UserRepository.GetFirstOrDefault(u => u.Username == username || u.Email == email);
+            return conflictedUser != null;
+        }
+
+        public void SignUp(User user)
+        {
+            _unitOfWork.UserRepository.Add(user);
+            _unitOfWork.Save();
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 15:
+
+using Model;
+
+namespace Services.IService
+{
+    public interface ISignInService
+    {
+        User SignIn(string emailOrUsername, string password);
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 16:
+
+using DataAccess.Repository.IRepository;
+using Model;
+using Services.IService;
+
+namespace Services
+{
+    public class SignInService : ISignInService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+
+        public SignInService(IUnitOfWork unitOfWork)
+        {
+            this._unitOfWork = unitOfWork;
+        }
+
+        public User SignIn(string emailOrUsername, string password)
+        {
+            User user = _unitOfWork.UserRepository.GetFirstOrDefault(u =>
+                (u.Email == emailOrUsername || u.Username == emailOrUsername) && u.Password == password);
+            return user;
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 17:
+
+builder.Services.AddScoped<ISignUpService, SignUpService>();
+builder.Services.AddScoped<ISignInService, SignInService>();
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 18:
+
+using System.ComponentModel.DataAnnotations;
+
+namespace Model.DTO
+{
+    public class SignUpDTO
+    {
+        [Required(ErrorMessage = "E-mail is required.")]
+        [MaxLength(254)]
+        [DataType(DataType.EmailAddress)]
+        [RegularExpression(@"^[^\s@]+@[^\s@]+\.[^\s@]+$", ErrorMessage = "Invalid e-mail format.")]
+        public string Email { get; set; }
+
+
+        [Required(ErrorMessage = "Username is required.")]
+        [MaxLength(30)]
+        [RegularExpression(@"^[a-zA-Z0-9_]+$",
+            ErrorMessage = "Username must only contain letters, digits, and underscores.")]
+        public string Username { get; set; }
+
+
+        [Required(ErrorMessage = "Password is required.")]
+        [MaxLength(30)]
+        [DataType(DataType.Password)]
+        [RegularExpression(@"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$",
+            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, one special character, and no spaces.")]
+        [Compare("RepeatPassword", ErrorMessage = "Passwords do not match.")]
+        public string Password { get; set; }
+
+
+        [Required(ErrorMessage = "Repeat password is required.")]
+        [MaxLength(30)]
+        [DataType(DataType.Password)]
+        [RegularExpression(@"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$",
+            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, one special character, and no spaces.")]
+        [Compare("Password", ErrorMessage = "Passwords do not match.")]
+        public string RepeatPassword { get; set; }
+
+
+        public SignUpDTO()
+        {
+            this.Email = "";
+            this.Username = "";
+            this.Password = "";
+            this.RepeatPassword = "";
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 19:
+
+using System.ComponentModel.DataAnnotations;
+
+namespace Model.DTO
+{
+    public class SignInDTO
+    {
+        [Required(ErrorMessage = "E-mail or username is required.")]
+        [MaxLength(254)]
+        [RegularExpression(@"^[^\s@]+@[^\s@]+\.[^\s@]+$|^[a-zA-Z0-9_]+$", ErrorMessage = "Invalid e-mail or username format.")]
+        public string EmailOrUsername { get; set; }
+
+
+        [Required(ErrorMessage = "Password is required.")]
+        [MaxLength(30)]
+        [DataType(DataType.Password)]
+        [RegularExpression(@"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]{8,}$",
+            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, one special character, and no spaces.")]
+        public string Password { get; set; }
+
+
+        public SignInDTO()
+        {
+            this.EmailOrUsername = "";
+            this.Password = "";
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 20:
+
+using Microsoft.AspNetCore.Mvc;
+using Model;
+using Model.DTO;
+using Services.IService;
+
+namespace API.Controllers
+{
+    [ApiController]
+    [Route("api/users")]
+    public class UserAPIController : ControllerBase
+    {
+        private readonly ISignUpService _signUpService;
+        private readonly ISignInService _signInService;
+        public UserAPIController(ISignUpService signUpService, ISignInService signInService)
+        {
+            this._signUpService = signUpService;
+            this._signInService = signInService;
+        }
+
+
+        [HttpPost("signup")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [Produces("application/json")]
+        public ActionResult SignUp([FromBody] SignUpDTO dto)
+        {
+            if (_signUpService.IsUsernameOrEmailTaken(dto.Username, dto.Email))
+            {
+                return Conflict(new { Status = 409, Message = "Username or email is already in use." });
+            }
+
+            User user = new User(dto.Email, dto.Username, dto.Password);
+            _signUpService.SignUp(user);
+            return Ok(new { Status = 200, Message = "Successfully signed up." });
+        }
+
+
+        [HttpPost("signin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [Produces("application/json")]
+        public ActionResult SignIn([FromBody] SignInDTO dto)
+        {
+            User user = _signInService.SignIn(dto.EmailOrUsername, dto.Password);
+            if (user == null)
+            {
+                return Unauthorized(new { Status = 401, Message = "Invalid credentials." });
+            }
+
+            return Ok(new { Status = 200, Message = "Successfully signed in." });
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 21:
+
+builder.Services.Configure<ApiBehaviorOptions>(apiBehaviorOptions => {
+    apiBehaviorOptions.SuppressModelStateInvalidFilter = true;
+});
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 22:
+
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Model
+{
+    public class Comment
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
+
+
+        [Required(ErrorMessage = "User is required.")]
+        public User User { get; set; }
+
+
+        [Required(ErrorMessage = "Comment text is required.")]
+        [MaxLength(1000)]
+        public string Text { get; set; }
+
+
+        [Required(ErrorMessage = "DateTime is required.")]
+        public DateTime DateTime { get; set; }
+
+
+        public Comment()
+        {
+            this.Id = 0;
+            this.User = null;
+            this.Text = "";
+            this.DateTime = DateTime.Now;
+        }
+
+        public Comment(string text)
+        {
+            this.Text = text;
+            this.DateTime = DateTime.Now;
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 23:
+
+public DbSet<Comment> Comments { get; set; }
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 24:
+
+public ICollection<Comment> Comments { get; set; }
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 25:
+
+namespace Services.IService
+{
+    public interface IUserVerificationService
+    {
+        bool UserExists(int id);
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 26:
+
+using DataAccess.Repository.IRepository;
+using Model;
+using Services.IService;
+
+namespace Services
+{
+    public class UserVerificationService : IUserVerificationService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+
+        public UserVerificationService(IUnitOfWork unitOfWork)
+        {
+            this._unitOfWork = unitOfWork;
+        }
+
+        public bool UserExists(int id)
+        {
+            User user = _unitOfWork.UserRepository.GetFirstOrDefault(u => u.Id == id);
+            return user != null;
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 27:
+
+using Model;
+
+namespace Services.IService
+{
+    public interface ICommentSubmissionService
+    {
+        void Submit(int userId, Comment comment);
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 28:
+
+using DataAccess.Repository.IRepository;
+using Model;
+using Services.IService;
+
+namespace Services
+{
+    public class CommentSubmissionService: ICommentSubmissionService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+
+        public CommentSubmissionService(IUnitOfWork unitOfWork)
+        {
+            this._unitOfWork = unitOfWork;
+        }
+
+        public void Submit(int userId, Comment comment)
+        {
+            User user = _unitOfWork.UserRepository.GetFirstOrDefault(u => u.Id == userId);
+            comment.User = user;
+            _unitOfWork.CommentRepository.Add(comment);
+            _unitOfWork.Save();
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 29:
+
+using Model;
+
+namespace Services.IService
+{
+    public interface ICommentViewerService
+    {
+        ICollection<Comment> View();
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 30:
+
+using DataAccess.Repository.IRepository;
+using Model;
+using Services.IService;
+
+namespace Services
+{
+    public class CommentViewerService: ICommentViewerService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+
+        public CommentViewerService(IUnitOfWork unitOfWork)
+        {
+            this._unitOfWork = unitOfWork;
+        }
+
+        public ICollection<Comment> View()
+        {
+            ICollection<Comment> comments = _unitOfWork.CommentRepository.GetAll(includedProperties: "User").ToList();
+            return comments;
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 31:
+
+using System.ComponentModel.DataAnnotations;
+
+namespace Model.DTO
+{
+    public class CommentSubmissionDTO
+    {
+        [Required(ErrorMessage = "UserId is required.")]
+        public int UserId { get; set; }
+
+
+        [Required(ErrorMessage = "Comment text is required.")]
+        [MaxLength(1000)]
+        public string Text { get; set; }
+
+
+        public CommentSubmissionDTO()
+        {
+            this.UserId = 0;
+            this.Text = "";
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 32:
+
+using Microsoft.AspNetCore.Mvc;
+using Model;
+using Model.DTO;
+using Services.IService;
+
+namespace WebAPI.Controllers
+{
+    [ApiController]
+    [Route("api/comments")]
+    public class CommentAPIController: ControllerBase
+    {
+        private readonly ICommentSubmissionService _commentSubmissionService;
+        private readonly ICommentViewerService _commentViewerService;
+        private readonly IUserVerificationService _userVerificationService;
+        public CommentAPIController(ICommentSubmissionService commentSubmissionService, ICommentViewerService commentViewerService, IUserVerificationService userVerificationService)
+        {
+            this._commentSubmissionService = commentSubmissionService;
+            this._commentViewerService = commentViewerService;
+            this._userVerificationService = userVerificationService;
+        }
+
+
+        [HttpPost("submit")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [Produces("application/json")]
+        public ActionResult Submit([FromBody] CommentSubmissionDTO dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errorMessages = ModelState.Values.SelectMany(v => v.Errors)
+                                             .Select(e => e.ErrorMessage)
+                                             .ToList();
+                return BadRequest(new { Status = 400, Errors = errorMessages });
+            }
+
+            int userId = dto.UserId;
+            if (!_userVerificationService.UserExists(userId))
+            {
+                return BadRequest(new { Status = 404, Message = "User not found." });
+            }
+
+            Comment comment = new Comment(dto.Text);
+            _commentSubmissionService.Submit(userId, comment);
+            return Ok(new { Status = 200, Message = "Successfully submitted the comment." });
+        }
+
+
+        [HttpGet("view")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [Produces("application/json")]
+        public ActionResult View()
+        {
+            ICollection<Comment> comments = _commentViewerService.View();
+
+            return Ok(new { Status = 200, Comments = comments });
+        }
+    }
+}
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 33:
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 34:
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(builder =>
+    {
+        builder.WithOrigins("https://localhost:3000")
+               .AllowAnyMethod()
+               .AllowAnyHeader()
+               .AllowCredentials();
+    });
+});
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SNIPPET 35:
+
+app.UseCors();
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

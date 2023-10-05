@@ -1,0 +1,169 @@
+- SETUP
+
+1. Napraviti ASP.NET Web API projekat u Visual Studio.
+
+2. Desni klik na Solution > Add > New Project > Class Library. Dodati dva Class Library projekta: Model, DataAccess i Services.
+
+
+
+- MODEL
+
+3. U projektu model ukloniti Class1.cs. Dodati novu klasu User.
+
+4. Napisati ili kopirati klasu User iz Snippets.txt (SNIPPET 1).
+
+5. Pogledati Data Anotacije za svaki Property. Na osnovu njih ce kasnije Entity Framework (objektno-relacioni maper) kasnije praviti kolone u SQL bazi.
+
+
+
+- DATA ACCESS
+
+6. Instalirati PostgreSQL i pgAdmin.
+
+8. Desni klik na Solution > Manage NuGet Packages for Solution. Instalirati Microsoft.EntityFrameworkCore i Microsoft.EntityFrameworkCore.Design za WebAPI projekat. Instalirati Npgsql.EntityFrameworkCore.PostgreSQL, Microsoft.EntityFrameworkCore i Microsoft.EntityFrameworkCore.Tools za DataAccess projekat.
+
+9. Desni klik na DataAccess projekat > Add > Project References. Dodati referencu na Model projekat.
+
+10. U projektu DataAccess ukloniti Class1.cs. Dodati novi folder Context i u njemu novu klasu ApplicationDbContext (SNIPPET 2).
+
+11. U appsettings.json dodati ConnectionString (SNIPPET 3). Promeniti Host, Port, Username i Password tako da odgovara vasem lokalnom serveru.
+
+12. U WebAPI projektu dodati referencu na DataAccess projekat.
+
+13. U Program.cs dodati DbContext (SNIPPET 4) nakon linije koda: builder.Services.AddSwaggerGen().
+
+14. U Visual Studio otvoriti Tools > NuGet Package Manager > Package Manager Console. Za Default project odabrati DataAccess.
+
+15. U konzolu ukucati Add-Migration CreateDatabase. CreateDatabse je proizvoljno ime Migracije koju pravimo.
+
+16. U DataAccess projektu primetiti novi folder Migrations sa novim migracijama.
+
+17. U pgAdminu primetiti da i dalje nema ChatForum baze.
+
+18. U Package Manager console ukucati Update-Database i pogledati ponovo.
+
+19. U pgAdmin pronaci tabelu EFMigrationsHistory. U njoj se belezi istorija migracija. Svaki put kada izvrsimo Update-Database EF proverava koje migracije su vec izvrsene i njih ne izvrsava.
+
+20. U ApplicationDbContext.cs dodati DbSet<User> Property (SNIPPET 5).
+
+21. U Package Manager console ukucati Add-Migration CreateUsersTable i Update-Database. Proveriti da li postoji tabela Users u bazi.
+
+
+
+- REPOSITORY
+
+22. U DataAccess projektu dodati folder Repository, a u njemu folder IRepository.
+
+23. Dodati IRepository interface u folder IRepository (SNIPPET 6).
+
+24. Dodati Repository klasu u folder Repository (SNIPPET 7).
+
+25. Dodati IUserRepository interface u folder IRepository (SNIPPET 8).
+
+26. Dodati UserRepository klasu u folder Repository (SNIPPET 9).
+
+27. Dodati IUnitOfWork interface u folder IRepository (SNIPPET 10).
+
+28. Dodati UnitOfWork interface u folder Repository (SNIPPET 11). U ovu klasu stavljamo sve repozitorijume kao i ApplicationDbContextpreko koga cuvamo promene u bazi.
+
+
+
+- DEPENDENCY INJECTION
+
+29. U Program.cs nakon koda za dodavanje DbContext dodati UnitOfWork u dependency injection (SNIPPET 12).
+
+30. Kada konfigurisemo dependency injection, postoje 3 opcije: AddSingleton, AddScoped i AddTransient. Instance se za Singletion prave jednom, za Scoped jednom po HTTP zahtevu, a za Transient svaki put kada nam instanca zatreba.
+
+
+
+- SERVICES
+
+31. U projektu Services ukloniti Class1.cs.
+
+32. U Services dodati referencu na Model i DataAccess projekte.
+
+33. U projektu Services dodati IService folder.
+
+34. Dodati ISignUpService interface u IService folder (SNIPPET 13).
+
+35. Dodati SignUpService u Service folder (SNIPPET 14).
+
+36. Dodati ISignInService interface u IService folder (SNIPPET 15).
+
+37. Dodati SignInService u Service folder (SNIPPET 16).
+
+38. U WebAPI dodati referencu na Services projekat.
+
+39. U Program.cs dodati SignUpService i SignInService u dependency injection (SNIPPET 17).
+
+
+
+- DATA TRANSFER OBJECT (DTO)
+
+40. U projektu Services dodati DTO folder.
+
+41. Dodati klasu SignUpDTO (SNIPPET 18).
+
+42. Dodati klasu SignInDTO (SNIPPET 19).
+
+43. Ove klase sluze kao sema za request body. Nepostovanje ove seme prilikom HTTP zahteva ce dovesti do greske.
+
+
+
+- API CONTROLLERS
+
+44. U WebAPI dodati referencu na Model projekat.
+
+45. U projektu DataAccess ukloniti WeatherForecast.cs i WeatherForecastController.cs.
+
+46. Dodati klasu UserAPIController u Controllers folder (SNIPPET 20).
+
+47. Obratiti paznju na anotacije, povratne tipove i na klasu ControllerBase koju Controller nasledjuje.
+
+48. U Program.cs pre dodavanja DbContexta onemoguciti da ModelState salje automatske odgovore (SNIPPET 21).
+
+49. Pokrenuti aplikaciju i testirati u Swagger UI.
+
+
+
+- INCLUDE
+
+50. U Model projekat dodati Comment klasu (SNIPPET 22).
+
+51. U ApplicationDbContext dodati DbSet<Comment> Property (SNIPPET 23).
+
+52. U Package Manager Console ukucati Add-Migration AddCommentsTable i Update-Database. Primetiti da je Entity Framework sam dodao UserID kolonu i Foreign Key Constraint za User-a.
+
+53. Napraviti ICommentRepository i CommentRepository na osnovu IUserRepository i UserRepository. 
+
+54. Dodati CommentRepository u IUnitOfWork i UnitOfWork.
+
+55. Dodati IUserVerificationService(SNIPPET 25).
+
+56. Dodati UserVerificationService(SNIPPET 26).
+
+55. Dodati ICommentSubmissionService (SNIPPET 27).
+
+56. Dodati CommentSubmissionService (SNIPPET 28).
+
+57. Dodati ICommentViewerService (SNIPPET 29).
+
+58. Dodati CommentViewerService (SNIPPET 30) gde koristeci include uz komentare dobijamo i ko ih je napisao. Bez include bismo dobili samo komentare bez user-a.
+
+59. U Program.cs dodati UserVerificationService, CommentSubmissionService i CommentViewerService u dependency injection.
+
+60. Dodati klasu CommentSubmissionDTO (SNIPPET 31).
+
+61. Dodati CommentAPIController (SNIPPET 32).
+
+62. U konstruktor ApplicationDbContext klase omoguciti LegacyTimestampBehavior (SNIPPET 33).
+
+
+
+- CROSS ORIGIN RESOURCE SHARING (CORS) POLICY
+
+63. Da bi mogli da saljemo zahteve ka nasem servisu potrebno je dodati CORS Policy.
+
+64. U Program.cs dodati CORS Policy (SNIPPET 34) nakon linije koda: builder.Services.AddSwaggerGen().
+
+65. U Program.cs ukljuciti CORS Policy (SNIPPET 35) nakon linije koda: app.UseHttpsRedirection().
